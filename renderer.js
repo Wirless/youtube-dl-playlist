@@ -6,6 +6,8 @@ const progressPercentage = document.getElementById('progress-percentage');
 const activeDownloadsDiv = document.getElementById('active-downloads');
 const playlistInfoDiv = document.getElementById('playlist-info');
 const darkModeToggle = document.getElementById('dark-mode-toggle');
+const convertToggle = document.getElementById('convert-toggle');
+const conversionDiv = document.getElementById('conversion-progress');
 
 function updateActiveDownloads(progress) {
   const { completed, total, active, pending } = progress.data;
@@ -57,7 +59,17 @@ window.api.onPlaylistLoaded((info) => {
 
 // Listen for progress updates
 window.api.onProgress((progress) => {
-  updateActiveDownloads(progress);
+  if (progress.type === 'conversion-progress') {
+    conversionDiv.innerHTML = `
+      <div class="conversion-item">
+        <p>Converting: ${progress.data.title}</p>
+        <progress value="${progress.data.percent}" max="100"></progress>
+        <span>${progress.data.percent.toFixed(1)}%</span>
+      </div>
+    `;
+  } else {
+    updateActiveDownloads(progress);
+  }
 });
 
 // Listen for download completion
@@ -78,4 +90,9 @@ darkModeToggle.addEventListener('change', (event) => {
   } else {
     document.body.classList.remove('dark-mode');
   }
+});
+
+// Add conversion toggle handler
+convertToggle.addEventListener('change', (event) => {
+  window.api.setConvertOption(event.target.checked);
 }); 

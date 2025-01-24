@@ -1,7 +1,12 @@
 const fs = require('fs');
 const ytpl = require('ytpl'); // Fetch playlists with pagination
-const youtubedl = require('youtube-dl-exec'); // Download videos/audio
+const ytdlp = require('yt-dlp-exec'); // Download videos/audio
 const path = require('path');
+const ffmpeg = require('fluent-ffmpeg');
+const ffmpegPath = require('ffmpeg-static');
+
+// Set ffmpeg path
+ffmpeg.setFfmpegPath(ffmpegPath);
 
 /**
  * Sanitizes a filename by removing invalid characters
@@ -27,11 +32,25 @@ const downloadAsMp3 = async (videoUrl, title, outputPath) => {
     console.log(`Downloading: ${title}`);
     console.log(`URL: ${videoUrl}`);
 
-    await youtubedl(videoUrl, {
+    await ytdlp(videoUrl, {
       extractAudio: true,
       audioFormat: 'mp3',
       output: outputPath,
       noPlaylist: true,
+      format: 'ba', // Best audio
+      addMetadata: true,
+      embedThumbnail: true,
+      audioQuality: '0', // Best quality
+      concurrent: 1,
+      retries: 3,
+      noCheckCertificates: true,
+      preferFreeFormats: true,
+      noWarnings: true,
+      addHeader: [
+        'referer:youtube.com',
+        'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      ],
+      ffmpegLocation: ffmpegPath // Add ffmpeg location
     });
 
     console.log(`Completed: ${title}\n`);
@@ -39,7 +58,25 @@ const downloadAsMp3 = async (videoUrl, title, outputPath) => {
   } catch (err) {
     console.log(`Failed: ${title}`);
     console.log(`Error: ${err.message}\n`);
-    return false;
+    
+    // Try one more time with simpler options
+    try {
+      await ytdlp(videoUrl, {
+        extractAudio: true,
+        audioFormat: 'mp3',
+        output: outputPath,
+        format: 'ba',
+        noCheckCertificates: true,
+        noWarnings: true,
+        noPlaylist: true
+      });
+      console.log(`Retry succeeded: ${title}\n`);
+      return true;
+    } catch (retryErr) {
+      console.log(`Retry also failed: ${title}`);
+      console.log(`Error: ${retryErr.message}\n`);
+      return false;
+    }
   }
 };
 
@@ -223,6 +260,19 @@ class DownloadManager {
     this.failedQueue = [];      // Failed downloads
     this.maxConcurrent = 5;
     this.isProcessing = false;
+    this.convertToMp3 = false;
+    this.conversionQueue = [];
+    this.isConverting = false;
+    this.webmFolder = path.join(downloadFolder, 'webm');
+    this.mp3Folder = path.join(downloadFolder, 'mp3');
+    
+    // Create folders
+    if (!fs.existsSync(this.webmFolder)) fs.mkdirSync(this.webmFolder, { recursive: true });
+    if (!fs.existsSync(this.mp3Folder)) fs.mkdirSync(this.mp3Folder, { recursive: true });
+  }
+
+  setConvertToMp3(value) {
+    this.convertToMp3 = value;
   }
 
   async initializeFromPlaylist(playlistUrl, onProgressCallback) {
@@ -321,11 +371,23 @@ class DownloadManager {
   }
 
   async downloadTrack(track, onProgressCallback) {
-    const outputPath = path.join(this.downloadFolder, `${sanitizeFilename(track.title)}.mp3`);
+    const outputPath = path.join(
+      this.convertToMp3 ? this.webmFolder : this.mp3Folder,
+      `${sanitizeFilename(track.title)}.${this.convertToMp3 ? 'webm' : 'mp3'}`
+    );
     
     try {
       console.log(`Downloading: ${track.title}`);
       await downloadAsMp3(track.url, track.title, outputPath);
+      
+      if (this.convertToMp3) {
+        this.conversionQueue.push({
+          title: track.title,
+          webmPath: outputPath,
+          mp3Path: path.join(this.mp3Folder, `${sanitizeFilename(track.title)}.mp3`)
+        });
+        this.processConversionQueue(onProgressCallback);
+      }
       
       track.state = QUEUE_STATE.COMPLETED;
       this.completedQueue.push(track);
@@ -342,6 +404,53 @@ class DownloadManager {
       const index = this.activeQueue.indexOf(track);
       if (index > -1) this.activeQueue.splice(index, 1);
     }
+  }
+
+  async processConversionQueue(onProgressCallback) {
+    if (this.isConverting) return;
+    this.isConverting = true;
+
+    try {
+      while (this.conversionQueue.length > 0) {
+        const item = this.conversionQueue.shift();
+        await this.convertToMp3File(item, onProgressCallback);
+      }
+    } finally {
+      this.isConverting = false;
+    }
+  }
+
+  convertToMp3File(item, onProgressCallback) {
+    return new Promise((resolve, reject) => {
+      console.log(`Converting: ${item.title}`);
+      
+      ffmpeg(item.webmPath)
+        .toFormat('mp3')
+        .on('progress', (progress) => {
+          if (onProgressCallback) {
+            onProgressCallback({
+              type: 'conversion-progress',
+              data: {
+                title: item.title,
+                percent: progress.percent
+              }
+            });
+          }
+        })
+        .on('end', () => {
+          // Remove WebM file after successful conversion
+          fs.unlink(item.webmPath, (err) => {
+            if (err) console.error(`Error removing WebM file: ${err}`);
+          });
+          console.log(`Converted: ${item.title}`);
+          resolve();
+        })
+        .on('error', (err) => {
+          console.error(`Conversion error: ${err.message}`);
+          reject(err);
+        })
+        .save(item.mp3Path);
+    });
   }
 
   getPendingCount() {

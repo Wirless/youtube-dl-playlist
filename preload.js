@@ -7,4 +7,7 @@ contextBridge.exposeInMainWorld('api', {
   onProgress: (callback) => ipcRenderer.on('download-progress', (event, progress) => callback(progress)),
   onComplete: (callback) => ipcRenderer.on('download-complete', callback),
   onError: (callback) => ipcRenderer.on('download-error', (event, error) => callback(error)),
+  setConvertOption: (value) => ipcRenderer.send('set-convert-option', value),
+  onConversionProgress: (callback) => 
+    ipcRenderer.on('conversion-progress', (event, progress) => callback(progress)),
 });

@@ -81,4 +81,10 @@ ipcMain.on('stop-download', () => {
   abortControllers.forEach(controller => controller.abort());
   abortControllers = []; // Clear the controllers after aborting
   mainWindow.webContents.send('download-error', 'Download stopped by user.');
+});
+
+ipcMain.on('set-convert-option', (event, shouldConvert) => {
+  if (downloadManager) {
+    downloadManager.setConvertToMp3(shouldConvert);
+  }
 }); 
