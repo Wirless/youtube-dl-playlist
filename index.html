@@ -7,22 +7,26 @@
 </head>
 <body>
   <h1>YouTube Playlist Downloader</h1>
-  <input type="text" id="playlist-url" placeholder="Enter Playlist URL" />
-  <div class="buttons">
-    <button id="download-button">Download</button>
-    <button id="stop-button">Stop</button>
-  </div>
   
-  <!-- Download Information Section -->
-  <div class="download-info">
-    <p id="current-track">Current Track: None</p>
-    <progress id="progress-bar" value="0" max="100"></progress>
-    <span id="progress-percentage">0%</span>
+  <input type="text" id="playlist-url" placeholder="Enter YouTube playlist URL">
+  
+  <div class="buttons">
+    <button id="download-button">Start Download</button>
+    <button id="stop-button">Stop Download</button>
   </div>
+
+  <div id="playlist-info" class="info-section"></div>
+  
+  <div class="progress-section">
+    <progress id="progress-bar" value="0" max="100"></progress>
+    <p id="progress-percentage">0%</p>
+  </div>
+
+  <div id="active-downloads" class="downloads-section"></div>
 
   <div class="toggle">
     <label for="dark-mode-toggle">Dark Mode</label>
-    <input type="checkbox" id="dark-mode-toggle" />
+    <input type="checkbox" id="dark-mode-toggle">
   </div>
 
   <script src="renderer.js"></script>
