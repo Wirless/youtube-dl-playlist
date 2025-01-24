@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>YouTube Playlist Downloader</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>YouTube Playlist Downloader</h1>
+  <input type="text" id="playlist-url" placeholder="Enter Playlist URL" />
+  <div class="buttons">
+    <button id="download-button">Download</button>
+    <button id="stop-button">Stop</button>
+  </div>
+  
+  <!-- Download Information Section -->
+  <div class="download-info">
+    <p id="current-track">Current Track: None</p>
+    <progress id="progress-bar" value="0" max="100"></progress>
+    <span id="progress-percentage">0%</span>
+  </div>
+
+  <div class="toggle">
+    <label for="dark-mode-toggle">Dark Mode</label>
+    <input type="checkbox" id="dark-mode-toggle" />
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html> 
